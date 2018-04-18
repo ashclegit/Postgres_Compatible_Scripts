@@ -532,3 +532,373 @@ select * from (select  i."i_brand_id" brand_id, i."i_brand" brand, i."i_manufact
  ) as tbl limit 10;
 
 
+/* query 95 */
+with ws_wh as
+(select ws1."ws_order_number",ws1."ws_warehouse_sk" wh1,ws2."ws_warehouse_sk" wh2
+from "postgrestest"."web_sales" ws1,"postgrestest"."web_sales" ws2
+where ws1."ws_order_number" = ws2."ws_order_number"
+  and ws1."ws_warehouse_sk" <> ws2."ws_warehouse_sk")
+select
+  count(distinct ws."ws_order_number") as "order count"
+ ,sum(ws."ws_ext_ship_cost") as "total shipping cost"
+ ,sum(ws."ws_net_profit") as "total net profit"
+from
+  "postgrestest"."web_sales" ws
+ ,"postgrestest"."date_dim" d
+ ,"postgrestest"."customer_address" ca
+ ,"postgrestest"."web_site" web
+where
+   d."d_date" between '1999-5-01' and
+          (cast('1999-5-01' as date) + INTERVAL '60' day)
+and ws."ws_ship_date_sk" = d."d_date_sk"
+and ws."ws_ship_addr_sk" = ca."ca_address_sk"
+and ca."ca_state" = 'MT'
+and ws."ws_web_site_sk" = web."web_site_sk"
+and web."web_company_name" = 'pri'
+and ws."ws_order_number" in (select ws."ws_order_number"
+                           from ws_wh)
+and ws."ws_order_number" in (select wr."wr_order_number"
+                           from "postgrestest"."web_returns" wr,ws_wh 
+                           where wr."wr_order_number" = ws_wh."ws_order_number")
+order by count(distinct ws."ws_order_number")
+limit 10;
+
+/*query 98 */
+
+select i."i_item_id"
+      ,i."i_item_desc"
+      ,i."i_category"
+      ,i."i_class"
+      ,i."i_current_price"
+      ,sum(ss."ss_ext_sales_price") as "itemrevenue"
+      ,sum(ss."ss_ext_sales_price")*100/sum(sum(ss."ss_ext_sales_price")) over
+          (partition by i."i_class") as revenueratio
+from
+        "postgrestest"."store_sales" ss
+        ,"postgrestest"."item" i
+        ,"postgrestest"."date_dim" d
+where
+        ss."ss_item_sk" = i."i_item_sk"
+        and i."i_category" in ('Jewelry', 'Sports', 'Books')
+        and ss."ss_sold_date_sk" = d."d_date_sk"
+        and d."d_date" between cast('2001-01-12' as date)
+                                and (cast('2001-01-12' as date) + INTERVAL '30' day )
+group by
+        i."i_item_id"
+        ,i."i_item_desc"
+        ,i."i_category"
+        ,i."i_class"
+        ,i."i_current_price"
+order by
+        i."i_category"
+        ,i."i_class"
+        ,i."i_item_id"
+        ,i."i_item_desc"
+        ,revenueratio;
+
+
+select i."i_item_id"
+      ,i."i_item_desc"
+      ,i."i_category"
+      ,i."i_class"
+      ,i."i_current_price"
+      ,sum(ss."ss_ext_sales_price") as "itemrevenue"
+from
+        "postgrestest"."store_sales" ss
+        ,"postgrestest"."item" i
+        ,"postgrestest"."date_dim" d
+where
+        ss."ss_item_sk" = i."i_item_sk"
+        and i."i_category" in ('Jewelry', 'Sports', 'Books')
+        and ss."ss_sold_date_sk" = d."d_date_sk"
+        and d."d_date" between cast('2001-01-12' as date)
+                                and (cast('2001-01-12' as date) + INTERVAL '30' day )
+group by
+        i."i_item_id"
+        ,i."i_item_desc"
+        ,i."i_category"
+        ,i."i_class"
+        ,i."i_current_price"
+order by
+        i."i_category"
+        ,i."i_class"
+        ,i."i_item_id"
+        ,i."i_item_desc";
+
+
+/*query 78*/
+
+with ws as
+ (select d."d_year" as ws_sold_year, ws."ws_item_sk",
+   ws."ws_bill_customer_sk" as ws_customer_sk,
+   sum(ws."ws_quantity") ws_qty,
+   sum(ws."ws_wholesale_cost") ws_wc,
+   sum(ws."ws_sales_price") ws_sp
+  from "postgrestest"."web_sales" ws
+  left join "postgrestest"."web_returns" wr on wr."wr_order_number"=ws."ws_order_number" and ws."ws_item_sk"=wr."wr_item_sk"
+  join "postgrestest"."date_dim" d on ws."ws_sold_date_sk" = d."d_date_sk"
+  where wr."wr_order_number" is null
+  group by d."d_year", ws."ws_item_sk", ws."ws_bill_customer_sk"
+  ),
+cs as
+ (select d."d_year" AS cs_sold_year, cs."cs_item_sk",
+   cs."cs_bill_customer_sk" as cs_customer_sk,
+   sum(cs."cs_quantity") cs_qty,
+   sum(cs."cs_wholesale_cost") cs_wc,
+   sum(cs."cs_sales_price") cs_sp
+  from "postgrestest"."catalog_sales" cs
+  left join "postgrestest"."catalog_returns" cr on cr."cr_order_number"=cs."cs_order_number" and cs."cs_item_sk"=cr."cr_item_sk"
+  join "postgrestest"."date_dim" d on cs."cs_sold_date_sk" = d."d_date_sk"
+  where cr."cr_order_number" is null
+  group by d."d_year", cs."cs_item_sk", cs."cs_bill_customer_sk"
+  ),
+ss as
+ (select d."d_year" AS ss_sold_year, ss."ss_item_sk",
+   ss."ss_customer_sk",
+   sum(ss."ss_quantity") ss_qty,
+   sum(ss."ss_wholesale_cost") ss_wc,
+   sum(ss."ss_sales_price") ss_sp
+  from "postgrestest"."store_sales" ss
+  left join "postgrestest"."store_returns" sr on sr."sr_ticket_number"=ss."ss_ticket_number" and ss."ss_item_sk"=sr."sr_item_sk"
+  join "postgrestest"."date_dim" d on ss."ss_sold_date_sk" = d."d_date_sk"
+  where sr."sr_ticket_number" is null
+  group by d."d_year", ss."ss_item_sk", ss."ss_customer_sk"
+  )
+select * from ( select
+ss_sold_year, ss."ss_item_sk", ss."ss_customer_sk",
+round(ss.ss_qty/(coalesce(ws_qty,0)+coalesce(cs_qty,0)),2) ratio,
+ss_qty store_qty, ss_wc store_wholesale_cost, ss_sp store_sales_price,
+coalesce(ws_qty,0)+coalesce(cs_qty,0) other_chan_qty,
+coalesce(ws_wc,0)+coalesce(cs_wc,0) other_chan_wholesale_cost,
+coalesce(ws_sp,0)+coalesce(cs_sp,0) other_chan_sales_price
+from ss
+left join ws on (ws_sold_year=ss_sold_year and ws."ws_item_sk"=ss."ss_item_sk" and ws_customer_sk=ss."ss_customer_sk")
+left join cs on (cs_sold_year=ss_sold_year and cs."cs_item_sk"=ss."ss_item_sk" and cs_customer_sk=ss."ss_customer_sk")
+where (coalesce(ws_qty,0)>0 or coalesce(cs_qty, 0)>0) and ss_sold_year=2000
+order by
+ ss_sold_year, ss."ss_item_sk", ss."ss_customer_sk",
+ ss_qty desc, ss_wc desc, ss_sp desc,
+ other_chan_qty,
+ other_chan_wholesale_cost,
+ other_chan_sales_price,
+ ratio
+) tbl limit 100;
+
+ /*query 46*/
+
+ select * from (select  c."c_last_name"
+       ,c."c_first_name"
+       ,current_addr."ca_city"
+       ,bought_city
+       ,dn."ss_ticket_number"
+       ,amt,profit
+ from
+   (select ss."ss_ticket_number"
+          ,ss."ss_customer_sk"
+          ,ca."ca_city" bought_city
+          ,sum(ss."ss_coupon_amt") amt
+          ,sum(ss."ss_net_profit") profit
+    from "postgrestest"."store_sales" ss,"postgrestest"."date_dim" d,"postgrestest"."store" s,"postgrestest"."household_demographics" hd,"postgrestest"."customer_address" ca
+    where ss."ss_sold_date_sk" = d."d_date_sk"
+    and ss."ss_store_sk" = s."s_store_sk"
+    and ss."ss_hdemo_sk" = hd."hd_demo_sk"
+    and ss."ss_addr_sk" = ca."ca_address_sk"
+    and (hd."hd_dep_count" = 5 or
+         hd."hd_vehicle_count"= 3)
+    and d."d_dow" in (6,0)
+    and d."d_year" in (1999,1999+1,1999+2)
+    and s."s_city" in ('Midway','Fairview','Fairview','Midway','Fairview')
+    group by ss."ss_ticket_number",ss."ss_customer_sk",ss."ss_addr_sk",ca."ca_city") dn,"postgrestest"."customer" c,"postgrestest"."customer_address" current_addr
+    where dn."ss_customer_sk" = c."c_customer_sk"
+      and c."c_current_addr_sk" = current_addr."ca_address_sk"
+      and current_addr."ca_city" <> bought_city
+  order by c."c_last_name"
+          ,c."c_first_name"
+          ,current_addr."ca_city"
+          ,bought_city
+          ,dn."ss_ticket_number"
+   ) as tbl;
+
+
+/*query 47*/ /*taking more time */
+with v1 as(
+ select i."i_category", i."i_brand",
+        s."s_store_name", s."s_company_name",
+        d."d_year", d."d_moy",
+        sum(ss."ss_sales_price") sum_sales,
+        avg(sum(ss."ss_sales_price")) over
+          (partition by i."i_category", i."i_brand",
+                     s."s_store_name", s."s_company_name", d."d_year")
+          avg_monthly_sales,
+        rank() over
+          (partition by i."i_category", i."i_brand",
+                     s."s_store_name", s."s_company_name"
+           order by d."d_year", d."d_moy") rn
+ from "postgrestest"."item" i , "postgrestest"."store_sales" ss, "postgrestest"."date_dim" d, "postgrestest"."store" s
+ where ss."ss_item_sk" = i."i_item_sk" and
+       ss."ss_sold_date_sk" = d."d_date_sk" and
+       ss."ss_store_sk" = s."s_store_sk" and
+       (
+         d."d_year" = 2000 or
+         ( d."d_year" = 2000-1 and d."d_moy" =12) or
+         ( d."d_year" = 2000+1 and d."d_moy" =1)
+       )
+ group by i."i_category", i."i_brand",
+          s."s_store_name", s."s_company_name",
+          d."d_year", d."d_moy"),
+ v2 as(
+ select v1."i_category"
+        ,v1."d_year", v1."d_moy"
+        ,v1.avg_monthly_sales
+        ,v1.sum_sales, v1_lag.sum_sales psum, v1_lead.sum_sales nsum
+ from v1, v1 v1_lag, v1 v1_lead
+ where v1."i_category" = v1_lag."i_category" and
+       v1."i_category" = v1_lead."i_category" and
+       v1."i_brand" = v1_lag."i_brand" and
+       v1."i_brand" = v1_lead."i_brand" and
+       v1."s_store_name" = v1_lag."s_store_name" and
+       v1."s_store_name" = v1_lead."s_store_name" and
+       v1."s_company_name" = v1_lag."s_company_name" and
+       v1."s_company_name" = v1_lead."s_company_name" and
+       v1.rn = v1_lag.rn + 1 and
+       v1.rn = v1_lead.rn - 1)
+ select * from ( select  *
+ from v2
+ where  v2."d_year" = 2000 and
+        v2.avg_monthly_sales > 0 and
+        case when v2.avg_monthly_sales > 0 then abs(v2.sum_sales - v2.avg_monthly_sales) / v2.avg_monthly_sales else null end > 0.1
+ order by v2.sum_sales - v2.avg_monthly_sales, 3
+  ) as tbl;
+
+ /*query 48*/
+
+
+with v1 as(
+ select i."i_category", i."i_brand",
+        s."s_store_name", s."s_company_name",
+        d."d_year", d."d_moy",
+        sum(ss."ss_sales_price") sum_sales,
+        avg(sum(ss."ss_sales_price")) over
+          (partition by i."i_category", i."i_brand",
+                     s."s_store_name", s."s_company_name", d."d_year")
+          avg_monthly_sales,
+        rank() over
+          (partition by i."i_category", i."i_brand",
+                     s."s_store_name", s."s_company_name"
+           order by d."d_year", d."d_moy") rn
+ from "postgrestest"."item" i , "postgrestest"."store_sales" ss, "postgrestest"."date_dim" d, "postgrestest"."store" s
+ where ss."ss_item_sk" = i."i_item_sk" and
+       ss."ss_sold_date_sk" = d."d_date_sk" and
+       ss."ss_store_sk" = s."s_store_sk" and
+       (
+         d."d_year" = 2000 or
+         ( d."d_year" = 2000-1 and d."d_moy" =12) or
+         ( d."d_year" = 2000+1 and d."d_moy" =1)
+       )
+ group by i."i_category", i."i_brand",
+          s."s_store_name", s."s_company_name",
+          d."d_year", d."d_moy"),
+ v2 as(
+ select v1."i_category"
+        ,v1."d_year", v1."d_moy"
+        ,v1.avg_monthly_sales
+        ,v1.sum_sales, v1_lag.sum_sales psum, v1_lead.sum_sales nsum
+ from v1, v1 v1_lag, v1 v1_lead
+ where v1."i_category" = v1_lag."i_category" and
+       v1."i_category" = v1_lead."i_category" and
+       v1."i_brand" = v1_lag."i_brand" and
+       v1."i_brand" = v1_lead."i_brand" and
+       v1."s_store_name" = v1_lag."s_store_name" and
+       v1."s_store_name" = v1_lead."s_store_name" and
+       v1."s_company_name" = v1_lag."s_company_name" and
+       v1."s_company_name" = v1_lead."s_company_name" and
+       v1.rn = v1_lag.rn + 1 and
+       v1.rn = v1_lead.rn - 1)
+ select * from ( select  *
+ from v2
+ where  v2."d_year" = 2000 and
+        v2.avg_monthly_sales > 0 and
+        case when v2.avg_monthly_sales > 0 then abs(v2.sum_sales - v2.avg_monthly_sales) / v2.avg_monthly_sales else null end > 0.1
+ order by v2.sum_sales - v2.avg_monthly_sales, 3
+  ) as tbl;
+
+
+
+/*query 33*/ /* not working */
+
+with ss as (
+ select
+          i."i_manufact_id",sum(ss."ss_ext_sales_price") total_sales
+ from
+        "postgrestest"."store_sales" ss,
+        "postgrestest"."date_dim" d,
+         "postgrestest"."customer_address" ca,
+         "postgrestest"."item" i
+ where
+         i."i_manufact_id" in (select
+  i."i_manufact_id"
+from
+ "postgrestest"."item" i
+where i."i_category" in ('Books'))
+ and     ss."ss_item_sk"              = i."i_item_sk"
+ and     ss."ss_sold_date_sk"         = d."d_date_sk"
+ and     d."d_year"                  = 1999
+ and     d."d_moy"                   = 3
+ and     ss."ss_addr_sk"              = ca."ca_address_sk"
+ and     ca."ca_gmt_offset"           = -5
+ group by i."i_manufact_id"),
+ cs as (
+ select
+          i."i_manufact_id",sum(cs."cs_ext_sales_price") total_sales
+ from
+        "postgrestest"."catalog_sales" cs,
+        "postgrestest"."date_dim" d,
+         "postgrestest"."customer_address" ca,
+         "postgrestest"."item" i
+ where
+         i."i_manufact_id"               in (select
+  i."i_manufact_id"
+from
+ "postgrestest"."item"
+where i."i_category" in ('Books'))
+ and     cs."cs_item_sk"              = i."i_item_sk"
+ and     cs."cs_sold_date_sk"         = d."d_date_sk"
+ and     d."d_year"                  = 1999
+ and     d."d_moy"                   = 3
+ and     cs."cs_bill_addr_sk"         = ca."ca_address_sk"
+ and     ca."ca_gmt_offset"           = -5
+ group by i."i_manufact_id"),
+ ws as (
+ select
+          i."i_manufact_id",sum(ws."ws_ext_sales_price") total_sales
+ from
+        "postgrestest"."web_sales" ws,
+        "postgrestest"."date_dim" d,
+         "postgrestest"."customer_address" ca,
+         "postgrestest"."item" i
+ where
+         i."i_manufact_id"               in (select
+  i."i_manufact_id"
+from
+ "postgrestest"."item" i
+where i."i_category" in ('Books'))
+ and     ws."ws_item_sk"              = i."i_item_sk"
+ and     ws."ws_sold_date_sk"         = d."d_date_sk"
+ and     d."d_year"                  = 1999
+ and     d."d_moy"                   = 3
+  and     ws."ws_bill_addr_sk"         = ca."ca_address_sk"
+ and     ca."ca_gmt_offset"           = -5
+ group by i."i_manufact_id")
+ select * from ( select  i_manufact_id ,sum(total_sales) total_sales
+ from  (select * from ss
+        union all
+        select * from cs
+        union all
+        select * from ws) tmp1
+ group by i_manufact_id
+ order by total_sales
+ ) as tbl;
+
+
+
+
