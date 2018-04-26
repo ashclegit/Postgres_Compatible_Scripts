@@ -1,4 +1,4 @@
-/*query 15*/
+/*query 15*/ /*not working*/
 select * from (select  c."ca_zip"
        ,sum(a."cs_sales_price") 
  from "postgrestest"."catalog_sales" a
@@ -17,7 +17,7 @@ select * from (select  c."ca_zip"
  order by c."ca_zip"
   ) as tbl;
 
-/*query22*/
+/*query22*/ 
 
 select * from (select  i."i_product_name"
              ,i."i_brand"
@@ -54,12 +54,12 @@ select * from (select  i."i_item_id",
        cd."cd_marital_status" = 'W' and
        cd."cd_education_status" = 'Primary' and
        (p."p_channel_email" = 'N' or p."p_channel_event" = 'N') and
-       d_year = 1998
+       d."d_year" = 1998
  group by i."i_item_id"
  order by i."i_item_id"
   ) as tbl;
 
-/*query 25*/
+/*query 25*/ /*not working*/
 select * from (select
  i."i_item_id"
  ,i."i_item_desc"
@@ -337,7 +337,7 @@ select * from (select
   ) as tbl;
 
 
-/* query 36 */
+/* query 36 */ /*not working*/
 
 select * from (select
     sum(ss."ss_net_profit")/sum(ss."ss_ext_sales_price") as gross_margin
@@ -387,84 +387,20 @@ select * from (select  i."i_item_id"
 
 /* query 48 */
 
-select sum (ss."ss_quantity")
- from "postgrestest"."store_sales" ss, "postgrestest"."store" s, "postgrestest"."customer_demographics" cd, "postgrestest"."customer_address" ca, "postgrestest"."date_dim" d
- where s."s_store_sk" = ss."ss_store_sk"
- and  ss."ss_sold_date_sk" = d."d_date_sk" and d."d_year" = 1998
- and
- (
-  (
-   cd."cd_demo_sk" = ss."ss_cdemo_sk"
-   and
-   cd."cd_marital_status" = 'M'
-   and
-   cd."cd_education_status" = '4 yr Degree'
-   and
-   ss."ss_sales_price" between 100.00 and 150.00
-   )
- or
-  (
-  cd."cd_demo_sk" = ss."ss_cdemo_sk"
-   and
-   cd."cd_marital_status" = 'D'
-   and
-   cd."cd_education_status" = 'Primary'
-   and
-   ss."ss_sales_price" between 50.00 and 100.00
-  )
- or
- (
-  cd."cd_demo_sk" = ss."ss_cdemo_sk"
-  and
-   cd."cd_marital_status" = 'U'
-   and
-   cd."cd_education_status" = 'Advanced Degree'
-   and
-   ss."ss_sales_price" between 150.00 and 200.00
- )
- )
- and
- (
-  (
-  ss."ss_addr_sk" = ca."ca_address_sk"
-  and
-  ca."ca_country" = 'United States'
-  and
-  ca."ca_state" in ('KY', 'GA', 'NM')
-  and ss."ss_net_profit" between 0 and 2000
-  )
- or
-  (ss."ss_addr_sk" = ca."ca_address_sk"
-  and
-  ca."ca_country" = 'United States'
-  and
-  ca."ca_state" in ('MT', 'OR', 'IN')
-  and ss."ss_net_profit" between 150 and 3000
-  )
- or
-  (ss."ss_addr_sk" = ca."ca_address_sk"
-  and
-  ca."ca_country" = 'United States'
-  and
-  ca."ca_state" in ('WI', 'MO', 'WV')
-  and ss."ss_net_profit" between 50 and 25000
-  )
- )
-;
-
+-
 
 /*query 43 */
 
 select * from (select  s."s_store_name", s."s_store_id",
-        sum(case when (d."d."d_day_name""='Sunday') then ss."ss_sales_price" else null end) sun_sales,
+        sum(case when (d."d_day_name"='Sunday') then ss."ss_sales_price" else null end) sun_sales,
         sum(case when (d."d_day_name"='Monday') then ss."ss_sales_price" else null end) mon_sales,
         sum(case when (d."d_day_name"='Tuesday') then ss."ss_sales_price" else  null end) tue_sales,
         sum(case when (d."d_day_name"='Wednesday') then ss."ss_sales_price" else null end) wed_sales,
         sum(case when (d."d_day_name"='Thursday') then ss."ss_sales_price" else null end) thu_sales,
         sum(case when (d."d_day_name"='Friday') then ss."ss_sales_price" else null end) fri_sales,
         sum(case when (d."d_day_name"='Saturday') then ss."ss_sales_price" else null end) sat_sales
- from "postgrestest"."date_dim", "postgrestest"."store_sales", "postgrestest"."store"
- where s."d_date_sk" = ss."ss_sold_date_sk" and
+ from "postgrestest"."date_dim" d, "postgrestest"."store_sales" ss, "postgrestest"."store" s
+ where d."d_date_sk" = ss."ss_sold_date_sk" and
        s."s_store_sk" = ss."ss_store_sk" and
        s."s_gmt_offset" = -5 and
        d."d_year" = 1998
@@ -895,7 +831,7 @@ where i."i_category" in ('Books'))
         select * from cs
         union all
         select * from ws) tmp1
- group by i_manufact_id
+ group by i."i_manufact_id"
  order by total_sales
  ) as tbl;
 
@@ -918,6 +854,60 @@ select * from (select  ca."ca_zip", ca."ca_county", sum(ws."ws_sales_price")
  group by ca."ca_zip", ca."ca_county"
  order by ca."ca_zip", ca."ca_county"
   ) as tbl;
+
+/*query 13*/  /*not working*/
+
+select avg(ss."ss_quantity")
+       ,avg(ss."ss_ext_sales_price")
+       ,avg(ss."ss_ext_wholesale_cost")
+       ,sum(ss."ss_ext_wholesale_cost")
+ from "postgrestest"."store_sales" ss
+     ,"postgrestest"."store" s
+     ,"postgrestest"."customer_demographics" cd
+     ,"postgrestest"."household_demographics" hd
+     ,"postgrestest"."customer_address" ca
+     ,"postgrestest"."date_dim" d
+ where s."s_store_sk" = ss."ss_store_sk"
+ and  ss."ss_sold_date_sk" = d."d_date_sk" and d."d_year" = 2001
+ and((ss."ss_hdemo_sk"=hd."hd_demo_sk"
+  and cd."cd_demo_sk" = ss."ss_cdemo_sk"
+  and cd."cd_marital_status" = 'D'
+  and cd."cd_education_status" = '2 yr Degree'
+  and ss."ss_sales_price" between 100.00 and 150.00
+  and hd."hd_dep_count" = 3
+     )or
+     (ss."ss_hdemo_sk"=hd."hd_demo_sk"
+  and cd."cd_demo_sk" = ss."ss_cdemo_sk"
+  and cd."cd_marital_status" = 'S'
+  and cd."cd_education_status" = 'Secondary'
+  and ss."ss_sales_price" between 50.00 and 100.00
+  and hd."hd_dep_count" = 1
+     ) or
+     (ss."ss_hdemo_sk"=hd."hd_demo_sk"
+  and cd."cd_demo_sk" = ss."ss_cdemo_sk"
+  and cd."cd_marital_status" = 'W'
+  and cd."cd_education_status" = 'Advanced Degree'
+  and ss."ss_sales_price" between 150.00 and 200.00
+  and hd."hd_dep_count" = 1
+     ))
+ and((ss."ss_addr_sk" = ca."ca_address_sk"
+  and ca."ca_country" = 'United States'
+  and ca."ca_state" in ('CO', 'IL', 'MN')
+  and ss."ss_net_profit" between 100 and 200
+     ) or
+     (ss."ss_addr_sk" = ca."ca_address_sk"
+  and ca."ca_country" = 'United States'
+  and ca."ca_state" in ('OH', 'MT', 'NM')
+  and ss."ss_net_profit" between 150 and 300  
+     ) or
+     (ss."ss_addr_sk" = ca."ca_address_sk"
+  and ca."ca_country" = 'United States'
+  and ca."ca_state" in ('TX', 'MO', 'MI')
+  and ss."ss_net_profit" between 50 and 250
+     ));    
+
+
+
 
 
 
